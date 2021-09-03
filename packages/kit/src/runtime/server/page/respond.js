@@ -22,7 +22,7 @@ import { coalesce_to_error } from '../../utils.js';
  * @returns {Promise<import('types/hooks').ServerResponse | undefined>}
  */
 export async function respond(opts) {
-	const { request, options, state, $session, route } = opts;
+	const { request, options, state, $session, route, page } = opts;
 
 	/** @type {Array<SSRNode | undefined>} */
 	let nodes;
@@ -45,11 +45,12 @@ export async function respond(opts) {
 	}
 
 	// the leaf node will be present. only layouts may be undefined
-	const leaf = /** @type {SSRNode} */ (nodes[nodes.length - 1]).module;
+	const leaf = /** @type {SSRNode} */ (nodes[nodes.length - 1]);
+	const prerender_enabled = is_prerender_enabled(options, leaf, state);
 
-	let page_config = get_page_config(leaf, options);
+	let page_config = get_page_config(leaf.module, options);
 
-	if (!leaf.prerender && state.prerender && !state.prerender.all) {
+	if (!leaf.module.prerender && state.prerender && !state.prerender.all) {
 		// if the page has `export const prerender = true`, continue,
 		// otherwise bail out at this point
 		return {
@@ -81,9 +82,10 @@ export async function respond(opts) {
 				try {
 					loaded = await load_node({
 						...opts,
+						page: create_page_proxy(page, prerender_enabled),
 						node,
 						context,
-						prerender_enabled: is_prerender_enabled(options, node, state),
+						prerender_enabled,
 						is_leaf: i === nodes.length - 1,
 						is_error: false
 					});
@@ -128,12 +130,14 @@ export async function respond(opts) {
 							}
 
 							try {
+								const prerender_enabled = is_prerender_enabled(options, error_node, state);
 								// there's no fallthough on an error page, so we know it's not undefined
 								const error_loaded = /** @type {import('./types').Loaded} */ (await load_node({
 									...opts,
+									page: create_page_proxy(page, prerender_enabled),
 									node: error_node,
 									context: node_loaded.context,
-									prerender_enabled: is_prerender_enabled(options, error_node, state),
+									prerender_enabled,
 									is_leaf: false,
 									is_error: true,
 									status,
@@ -184,6 +188,7 @@ export async function respond(opts) {
 	try {
 		return await render_response({
 			...opts,
+			page: create_page_proxy(page, prerender_enabled),
 			page_config,
 			status,
 			error,
@@ -212,4 +217,20 @@ function get_page_config(leaf, options) {
 		router: 'router' in leaf ? !!leaf.router : options.router,
 		hydrate: 'hydrate' in leaf ? !!leaf.hydrate : options.hydrate
 	};
+}
+
+/**
+ * @param {import('types/page').Page} page
+ * @param {boolean} prerender_enabled
+ * @returns
+ */
+function create_page_proxy(page, prerender_enabled) {
+	return new Proxy(page, {
+		get: (target, prop, receiver) => {
+			if (prop === 'query' && prerender_enabled) {
+				throw new Error('Cannot access query on a page with prerendering enabled');
+			}
+			return Reflect.get(target, prop, receiver);
+		}
+	});
 }

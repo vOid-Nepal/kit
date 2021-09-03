@@ -51,19 +51,10 @@ export async function load_node({
 
 	let loaded;
 
-	const page_proxy = new Proxy(page, {
-		get: (target, prop, receiver) => {
-			if (prop === 'query' && prerender_enabled) {
-				throw new Error('Cannot access query on a page with prerendering enabled');
-			}
-			return Reflect.get(target, prop, receiver);
-		}
-	});
-
 	if (module.load) {
 		/** @type {import('types/page').LoadInput | import('types/page').ErrorLoadInput} */
 		const load_input = {
-			page: page_proxy,
+			page,
 			get session() {
 				uses_credentials = true;
 				return $session;

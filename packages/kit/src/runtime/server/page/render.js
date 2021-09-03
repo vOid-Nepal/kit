@@ -136,7 +136,7 @@ export async function render_response({
 					page: {
 						host: ${page && page.host ? s(page.host) : 'location.host'}, // TODO this is redundant
 						path: ${s(page && page.path)},
-						query: new URLSearchParams(${page ? s(page.query.toString()) : ''}),
+						query: new URLSearchParams(document.location.search),
 						params: ${page && s(page.params)}
 					}
 				}` : 'null'}
