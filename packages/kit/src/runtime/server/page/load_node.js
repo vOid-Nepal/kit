@@ -54,7 +54,7 @@ export async function load_node({
 	if (module.load) {
 		/** @type {import('types/page').LoadInput | import('types/page').ErrorLoadInput} */
 		const load_input = {
-			page,
+			page: create_page_proxy(page, prerender_enabled),
 			get session() {
 				uses_credentials = true;
 				return $session;
@@ -357,4 +357,20 @@ export function resolve(base, path) {
 	const prefix = (path_match && path_match[0]) || (base_match && base_match[0]) || '';
 
 	return `${prefix}${baseparts.join('/')}`;
+}
+
+/**
+ * @param {import('types/page').Page} page
+ * @param {boolean} prerender_enabled
+ * @returns
+ */
+export function create_page_proxy(page, prerender_enabled) {
+	return new Proxy(page, {
+		get: (target, prop, receiver) => {
+			if (prop === 'query' && prerender_enabled) {
+				throw new Error('Cannot access query on a page with prerendering enabled');
+			}
+			return Reflect.get(target, prop, receiver);
+		}
+	});
 }
