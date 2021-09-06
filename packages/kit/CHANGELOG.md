@@ -1,5 +1,11 @@
 # @sveltejs/kit
 
+## 1.0.0-next.164
+
+### Patch Changes
+
+- refactor `import.meta.env` usage in `$app/stores.js` to use `$app/env.js` to DRY code and make mocking easier ([#2353](https://github.com/sveltejs/kit/pull/2353))
+
 ## 1.0.0-next.163
 
 ### Patch Changes
